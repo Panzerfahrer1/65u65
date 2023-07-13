@@ -1,0 +1,125 @@
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+
+public class Car : MonoBehaviour
+{
+    public List<GameObject> springs;
+    public List<GameObject> realtire;
+    public List<GameObject> steerrealtire;
+    public Rigidbody rb;
+    public float maxFoce;
+    public float maxDis;
+    public float dampers;
+    public Transform centeofMass;
+
+    public float tireGripFactorFront;
+    public float tireGripFactorBack;
+    public float tiremass;
+
+    public GameObject car;
+    public float CartopSpeed;
+    public List<GameObject> PowerTires;
+
+    public List<GameObject> Tires;
+    public List<GameObject> SteerTires;
+
+    public float turnspeed;
+
+    private float accelInput;
+    private float SteerInput;
+
+    public AnimationCurve gripcurve;
+    public AnimationCurve PowerCurve;
+
+
+    void Update()
+    {
+        accelInput = Input.GetAxisRaw("Vertical");
+        SteerInput = Input.GetAxisRaw("Horizontal");
+
+        
+    }
+    void FixedUpdate()
+    {
+        rb.centerOfMass = centeofMass.localPosition;
+       foreach(GameObject spring in springs)
+        {
+            RaycastHit hit;
+            if (Physics.Raycast(spring.transform.position, -transform.up, out hit, maxDis))
+            {
+                Vector3 springDir = spring.transform.up;
+                Vector3 tireWVel = rb.GetPointVelocity(spring.transform.position);
+                float offset = maxDis - hit.distance;
+
+                float vel = Vector3.Dot(springDir, tireWVel);
+
+                float force = (offset * maxFoce) - (vel * dampers);
+
+                rb.AddForceAtPosition(springDir * force, spring.transform.position);
+                Debug.DrawRay(spring.transform.position, -transform.up, Color.red);
+
+                foreach(GameObject tire in realtire)
+                {
+                   float speed =  Vector3.Magnitude(rb.velocity);
+                   tire.transform.position = new Vector3(tire.transform.position.x, hit.transform.position.y + 1.1f, tire.transform.position.z);
+                    tire.transform.Rotate(0, 0, speed);
+
+                }
+            }
+        }
+
+
+
+            foreach (GameObject steertire in SteerTires)
+            {
+                RaycastHit hit;
+                if (Physics.Raycast(steertire.transform.position, -transform.up, out hit, 1f))
+                {
+                    //steertire.transform.Rotate(Vector3.up, /*tireGripFactor * SteerInput * SteerCurve.Evaluate(speed)*/ 20 * SteerInput);
+                    steertire.transform.localEulerAngles = new Vector3(0, 25 * SteerInput, 0);
+                    float speed = Vector3.Magnitude(rb.velocity);
+                    Vector3 SteeerDir = steertire.transform.right;
+                    Vector3 tireWVel = rb.GetPointVelocity(steertire.transform.position);
+                    float sterrVel = Vector3.Dot(SteeerDir, tireWVel);
+                    float test = speed / Time.deltaTime * Vector3.Magnitude(steertire.transform.right);
+
+
+                    float desiredVelChange = -sterrVel * tireGripFactorFront; //* tireGripFactor;
+                    float desiredAccel = desiredVelChange / Time.fixedDeltaTime;
+
+                    rb.AddForceAtPosition(SteeerDir * tiremass * desiredAccel, steertire.transform.position);
+                }
+               
+            }
+
+            foreach (GameObject POWtire in PowerTires)
+            {
+                    RaycastHit ray;
+                float speed = Vector3.Magnitude(rb.velocity);
+                Vector3 SteeerDir = POWtire.transform.right;
+                Vector3 tireWVel = rb.GetPointVelocity(POWtire.transform.position);
+                float sterrVel = Vector3.Dot(SteeerDir, tireWVel);
+                float test = speed / Time.deltaTime * Vector3.Magnitude(POWtire.transform.right);
+
+
+                float desiredVelChange = -sterrVel * tireGripFactorBack; //* tireGripFactor;
+                float desiredAccel = desiredVelChange / Time.fixedDeltaTime;
+
+                rb.AddForceAtPosition(SteeerDir * tiremass * desiredAccel, POWtire.transform.position);
+             if (Physics.Raycast(POWtire.transform.position, -transform.up, out ray, 1f))
+                {
+                    Vector3 accelDir = POWtire.transform.forward;
+
+                    if (accelInput > 0.0f || accelInput < 0.0f)
+                    {
+                        float carSpeed = Vector3.Dot(car.transform.forward, rb.velocity);
+
+                        float normalizedSpeed = Mathf.Clamp01(Mathf.Abs(carSpeed) / CartopSpeed);
+                        rb.AddForceAtPosition(accelDir * accelInput *PowerCurve.Evaluate(speed / 50) * rb.mass *1.6f, POWtire.transform.position);
+
+                    }
+                }
+            }
+    }
+}
